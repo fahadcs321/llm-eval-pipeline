@@ -1,0 +1,35 @@
+# LLM Evaluation CI/CD Pipeline — Requirements
+
+# ── Evaluation frameworks ────────────────────────────────────────────────────
+deepeval>=3.0.0
+ragas>=0.1.10
+datasets>=2.19.0
+pandas>=2.0.0
+
+# ── LLM providers (Groq is the default judge — free, no card) ────────────────
+langchain-groq>=0.1.6
+langchain-core>=0.2.0
+langchain-openai>=0.1.0           # optional: only if JUDGE_PROVIDER=openai
+# langchain-google-genai>=1.0.0   # optional: JUDGE_PROVIDER=google
+# langchain-anthropic>=0.1.0      # optional: JUDGE_PROVIDER=anthropic
+
+# ── Embeddings (local — RAGAS scoring needs no OpenAI key) ────────────────────
+sentence-transformers>=2.7.0
+langchain-huggingface>=0.0.3
+
+# ── Cost tracking ────────────────────────────────────────────────────────────
+litellm>=1.40.0
+
+# ── Observability / reporting (all optional, no-op when unset) ───────────────
+langfuse>=2.0.0
+requests>=2.32.0                  # Grafana push
+slack-sdk>=3.27.0                 # Slack alerts
+
+# ── Testing utilities ────────────────────────────────────────────────────────
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+pydantic>=2.7.0
+rich>=13.7.0

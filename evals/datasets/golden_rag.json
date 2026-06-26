@@ -1,0 +1,212 @@
+[
+  {
+    "question": "What is retrieval-augmented generation?",
+    "ground_truth": "RAG is a technique that combines an information retrieval system with an LLM, fetching relevant documents from an external knowledge base and conditioning generation on them to reduce hallucinations and ground answers in real data.",
+    "context_source": "rag_overview.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What are the three stages of a typical RAG pipeline?",
+    "ground_truth": "Ingestion (load, chunk, embed, and store documents), retrieval (embed the query and fetch the most similar chunks), and generation (insert the chunks into the prompt and have the LLM answer from that context).",
+    "context_source": "rag_overview.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the main advantage of RAG over fine-tuning?",
+    "ground_truth": "The knowledge base can be updated at any time without retraining the model, and answers can cite the exact source passages used.",
+    "context_source": "rag_overview.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Why does naive RAG fail silently?",
+    "ground_truth": "Because it is linear: if retrieval returns irrelevant chunks, the model may still produce a confident but wrong answer, with no step to check whether the answer is grounded.",
+    "context_source": "rag_overview.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does LangGraph enable that a standard LangChain chain cannot?",
+    "ground_truth": "LangGraph allows cycles, so a workflow can loop back on itself, retry steps, and make conditional decisions, whereas a LangChain chain is a linear, acyclic sequence.",
+    "context_source": "langgraph_intro.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "How is state usually defined in LangGraph?",
+    "ground_truth": "State is typically defined as a TypedDict; each node receives the current state and returns a partial update that is merged into it.",
+    "context_source": "langgraph_intro.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the difference between a normal edge and a conditional edge in LangGraph?",
+    "ground_truth": "A normal edge always routes to a fixed next node, while a conditional edge calls a routing function that inspects the state and returns the name of the next node, enabling branching logic.",
+    "context_source": "langgraph_intro.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "How is a LangGraph graph assembled and run?",
+    "ground_truth": "By adding nodes, adding edges, setting an entry point, and compiling it; the compiled graph exposes an invoke method that runs from the entry point until it reaches the END node.",
+    "context_source": "langgraph_intro.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the difference between dense and sparse retrieval?",
+    "ground_truth": "Dense retrieval represents text as embedding vectors and matches by semantic similarity, while sparse retrieval uses term-based methods like BM25 that excel at exact keyword matching.",
+    "context_source": "retrieval_methods.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is hybrid retrieval?",
+    "ground_truth": "Hybrid retrieval combines dense and sparse scores to get both the semantic recall of embeddings and the lexical precision of BM25, usually merging the two with a fusion method such as reciprocal rank fusion.",
+    "context_source": "retrieval_methods.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does BM25 weight matches by?",
+    "ground_truth": "BM25 weights matches by term frequency and inverse document frequency.",
+    "context_source": "retrieval_methods.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Why is reranking applied only to the top candidates rather than the whole corpus?",
+    "ground_truth": "Because a reranker is a cross-encoder that jointly reads the query and each passage, which is more accurate but too expensive to run over the entire corpus, so it is applied only to the top candidates.",
+    "context_source": "retrieval_methods.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does the RAGAS faithfulness metric measure?",
+    "ground_truth": "Faithfulness measures whether the claims in the generated answer are supported by the retrieved context; it is the primary metric for detecting hallucinations.",
+    "context_source": "ragas_evaluation.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does answer relevancy measure in RAGAS?",
+    "ground_truth": "Answer relevancy measures whether the answer actually addresses the user's question, penalising responses that are off-topic, incomplete, or evasive.",
+    "context_source": "ragas_evaluation.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the difference between context recall and context precision?",
+    "ground_truth": "Context recall measures whether retrieval fetched all the information needed to answer (against the ground truth), while context precision measures whether the retrieved chunks are actually relevant and ranked near the top.",
+    "context_source": "ragas_evaluation.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "How do RAGAS metrics help separate retrieval problems from generation problems?",
+    "ground_truth": "If faithfulness is high but context recall is low, the retriever is the bottleneck; if the context is good but faithfulness is low, the generator is hallucinating.",
+    "context_source": "ragas_evaluation.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the LLM-as-judge pattern?",
+    "ground_truth": "It is a pattern where a language model evaluates another model's output instead of a human annotator; in self-healing RAG the judge reads the question, context, and answer and returns a verdict.",
+    "context_source": "self_healing_rag.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What three verdicts can the critique step return in a self-healing RAG pipeline?",
+    "ground_truth": "Grounded, hallucinated, or insufficient.",
+    "context_source": "self_healing_rag.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What happens when the critic returns a hallucinated verdict?",
+    "ground_truth": "The system rewrites the query to be more specific and retries retrieval to surface better context, up to a capped number of retries.",
+    "context_source": "self_healing_rag.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does a self-healing RAG system do after its retry budget is exhausted?",
+    "ground_truth": "It falls back to an honest 'I don't know' instead of returning an answer it could not ground.",
+    "context_source": "self_healing_rag.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Which research papers inspired the self-healing RAG design?",
+    "ground_truth": "Self-RAG and Corrective RAG (CRAG), which showed that self-reflection and corrective retrieval steps significantly reduce hallucination rates compared with naive RAG.",
+    "context_source": "self_healing_rag.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is a point in Qdrant?",
+    "ground_truth": "A point is an item stored in a collection consisting of an id, a vector, and an optional payload of arbitrary JSON metadata such as the original text, source name, and page number.",
+    "context_source": "qdrant_and_embeddings.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What distance metrics does Qdrant support for a collection?",
+    "ground_truth": "Cosine similarity, dot product, and Euclidean distance.",
+    "context_source": "qdrant_and_embeddings.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What embedding dimension does the all-MiniLM-L6-v2 model produce?",
+    "ground_truth": "384 dimensions.",
+    "context_source": "qdrant_and_embeddings.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Why must the Qdrant collection's vector size match the embedding model?",
+    "ground_truth": "Because the vector dimension configured in Qdrant must equal the embedding model's output dimension; using a different model usually means recreating the collection with the new size.",
+    "context_source": "qdrant_and_embeddings.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is retrieval-augmented generation and how does it differ from standard LLM generation?",
+    "ground_truth": "RAG augments LLM generation by first retrieving relevant documents from an external knowledge base, then conditioning the generation on those documents. Unlike standard generation, which relies solely on the model's training data, RAG grounds responses in real retrieved content, reducing hallucinations and enabling up-to-date, source-backed answers.",
+    "context_source": "rag_fundamentals.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does LangGraph add to LLM application development that LangChain alone cannot provide?",
+    "ground_truth": "LangGraph adds stateful, cyclic graph execution — nodes can loop, retry, and conditionally branch based on intermediate state. LangChain supports linear chains, but LangGraph enables agentic patterns like self-correction, multi-step reasoning, and conditional retries that require persistent state across steps.",
+    "context_source": "langgraph_intro.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "How do dense and sparse retrieval differ, and what is hybrid retrieval?",
+    "ground_truth": "Dense retrieval uses embedding vectors and semantic similarity (cosine distance) to find conceptually related documents even without keyword overlap. Sparse retrieval uses keyword-based methods like BM25, matching on exact or overlapping terms. Hybrid retrieval combines both — capturing semantic similarity and exact keyword matches — for better overall performance than either alone.",
+    "context_source": "retrieval_methods.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What specific metrics does RAGAS measure and what does each one assess?",
+    "ground_truth": "RAGAS measures: (1) Faithfulness — whether every claim in the answer is verifiable in the retrieved context; (2) Answer Relevancy — how well the answer addresses the question; (3) Context Recall — what fraction of the gold answer can be found in retrieved chunks; (4) Context Precision — what fraction of retrieved chunks are actually relevant to the question.",
+    "context_source": "ragas_docs.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the LLM-as-judge pattern and how reliable is it in 2026?",
+    "ground_truth": "LLM-as-judge uses a capable language model (e.g., GPT-4o or Claude) to evaluate another model's output against defined criteria, replacing human annotators for scalable evaluation. G-Eval is the most popular implementation, using chain-of-thought scoring. Research shows approximately 81% correlation with human ratings in 2026, making it the practical default for day-to-day LLM evaluation.",
+    "context_source": "llm_judge.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is Cohere Rerank and how does it improve retrieval quality?",
+    "ground_truth": "Cohere Rerank is a cross-encoder model that takes a query and a set of retrieved documents and scores them by relevance, reordering and filtering them before generation. Unlike bi-encoder embedding retrieval (which compares query and document vectors independently), a cross-encoder jointly encodes the query-document pair, yielding more precise relevance scores at higher computational cost.",
+    "context_source": "reranking.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Why does a CI/CD eval pipeline use a rolling 7-day baseline rather than a fixed threshold?",
+    "ground_truth": "A fixed threshold from launch day becomes miscalibrated over time as models drift, prompts change, and datasets evolve. A rolling 7-day baseline tracks what 'normal' looks like recently, so the gate catches genuine regressions (deviation from recent normal) rather than flagging ordinary variation or firing on thresholds that were never achievable after a model update.",
+    "context_source": "ci_cd_evals.txt",
+    "evolution_type": "multi_hop"
+  },
+  {
+    "question": "What is the difference between running DeepEval on every PR versus a nightly schedule?",
+    "ground_truth": "PR gates run a fast, sampled subset (e.g., 20 examples) using cheap deterministic or classifier checks to block regressions quickly with minimal cost. Nightly sweeps run the full golden dataset (150+ examples) with expensive LLM-judge metrics, cost tracking, and drift detection — providing comprehensive quality measurement without pricing out the CI pipeline.",
+    "context_source": "ci_cd_evals.txt",
+    "evolution_type": "multi_hop"
+  },
+  {
+    "question": "What is DeepEval's G-Eval metric and how is it different from fixed metrics like faithfulness?",
+    "ground_truth": "G-Eval is a customizable LLM-as-judge metric where you define the evaluation criteria in plain English, and an LLM scores outputs against those criteria using chain-of-thought reasoning. Unlike fixed metrics (faithfulness measures a specific property with a predefined algorithm), G-Eval lets you define arbitrary quality criteria — for example, 'does the answer stay on-topic' — without writing code.",
+    "context_source": "deepeval_docs.txt",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Does Qdrant support both dense and sparse retrieval in the same query?",
+    "ground_truth": "Yes. Qdrant supports hybrid search by combining dense vector similarity (embedding-based) with sparse vectors (e.g., BM25/SPLADE keyword representations) in a single query using named vector collections. The scores can be fused with configurable weighting, enabling a single Qdrant search call to return results ranked by both semantic similarity and keyword overlap.",
+    "context_source": "qdrant_docs.txt",
+    "evolution_type": "simple"
+  }
+]

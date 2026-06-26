@@ -1,0 +1,4 @@
+# Dev / CI tooling — light, no API keys needed. Installed by the offline unit job.
+ruff>=0.5.0
+pytest>=8.2.0
+pytest-asyncio>=0.23.0

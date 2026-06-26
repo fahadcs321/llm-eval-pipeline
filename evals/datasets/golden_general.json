@@ -1,0 +1,32 @@
+[
+  {
+    "question": "In one sentence, what is the difference between precision and recall?",
+    "ground_truth": "Precision is the fraction of predicted positives that are correct; recall is the fraction of actual positives that were found.",
+    "context_source": "general_ml",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What does an embedding represent in NLP?",
+    "ground_truth": "An embedding is a dense numeric vector that captures the semantic meaning of text, so that similar texts map to nearby points in vector space.",
+    "context_source": "general_ml",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "Why is temperature 0 often used for evaluation runs?",
+    "ground_truth": "Temperature 0 makes generation greedy and (near-)deterministic, so eval results are reproducible rather than varying run to run.",
+    "context_source": "general_llm",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is a context window in an LLM?",
+    "ground_truth": "The context window is the maximum number of tokens a model can attend to at once, covering both the prompt and the generated output.",
+    "context_source": "general_llm",
+    "evolution_type": "simple"
+  },
+  {
+    "question": "What is the purpose of a cross-encoder reranker?",
+    "ground_truth": "A cross-encoder reranker jointly encodes the query and each candidate document to score relevance more accurately than the bi-encoder used for first-stage retrieval, improving precision of the top results.",
+    "context_source": "general_rag",
+    "evolution_type": "simple"
+  }
+]

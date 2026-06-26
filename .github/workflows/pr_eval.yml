@@ -1,0 +1,83 @@
+name: CI
+
+# Fast offline checks run on every push and PR (no API keys, always green).
+# The live LLM-judge gate runs only when the RUN_EVAL repo variable is "true",
+# so the badge stays green without spending quota on every commit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Lint + offline unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Install dev tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Offline unit tests
+        run: pytest
+
+  eval-gate:
+    name: LLM-judge quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Gated: set repo variable RUN_EVAL=true and add GROQ_API_KEY to run this.
+    if: ${{ github.event_name == 'pull_request' && vars.RUN_EVAL == 'true' }}
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: DeepEval batch eval (sampled)
+        env:
+          JUDGE_PROVIDER: groq
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          EVAL_SAMPLE_SIZE: "12"
+        run: python evals/runners/run_deepeval.py --output results/deepeval_pr.json
+
+      - name: Quality gate (PR layer)
+        run: python -m evals.gate --results results/deepeval_pr.json --layer pr
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.sha }}
+          path: results/
+          retention-days: 14

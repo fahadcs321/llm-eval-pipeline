@@ -1,0 +1,87 @@
+name: Nightly Full Eval (Drift Detection)
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC every night
+  workflow_dispatch:       # allow manual trigger from the GitHub UI
+
+jobs:
+  full-sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Runs only when explicitly enabled, so the cron never fails on a fork
+    # without keys. Set repo variable RUN_EVAL=true and add GROQ_API_KEY.
+    if: ${{ vars.RUN_EVAL == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: RAGAS full sweep
+        env:
+          JUDGE_PROVIDER: groq
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python evals/runners/run_ragas.py --output results/ragas_nightly.json
+
+      - name: DeepEval full sweep
+        env:
+          JUDGE_PROVIDER: groq
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python evals/runners/run_deepeval.py --output results/deepeval_nightly.json
+
+      - name: Cost tracking
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          COST_MODEL: groq/llama-3.3-70b-versatile
+        run: python evals/runners/run_cost.py --output results/cost_nightly.json
+
+      - name: Quality gate (nightly layer)
+        run: python -m evals.gate --results results/ragas_nightly.json --layer nightly
+
+      - name: Drift detection vs 7-day baseline
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python scripts/drift_detector.py --current results/ragas_nightly.json
+
+      - name: Log to Langfuse
+        if: always()
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+        run: |
+          python evals/reporting/langfuse_logger.py \
+            --ragas results/ragas_nightly.json \
+            --cost results/cost_nightly.json \
+            --run-type nightly || echo "Langfuse logging skipped (non-blocking)"
+
+      - name: Push to Grafana
+        if: always()
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+        run: |
+          python evals/reporting/grafana_pusher.py \
+            --ragas results/ragas_nightly.json \
+            --cost results/cost_nightly.json \
+            --run-type nightly || echo "Grafana push skipped (non-blocking)"
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-eval-${{ github.run_id }}
+          path: results/
+          retention-days: 30

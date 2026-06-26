@@ -1,0 +1,24 @@
+[project]
+name = "llm-eval-pipeline"
+version = "0.1.0"
+description = "Automated LLM evaluation CI/CD pipeline — DeepEval + RAGAS quality gates that block merges on regression."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+# The default test run is the offline unit suite — fast, no API keys.
+# The live LLM-judge suites live under evals/tests and are invoked explicitly.
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "results"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Eval test modules build state at import time and import after a skip guard.
+"evals/tests/*" = ["E402"]
