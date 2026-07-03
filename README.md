@@ -180,5 +180,5 @@ use a Groq Dev-tier key or run nightly when the daily quota resets.
 
 ## Built by
 
-**Muhammad Fahad** · MSc Computer Science
+**Muhammad Fahad** · BSc Computer Science
 [GitHub](https://github.com/fahadcs321) · [LinkedIn](https://www.linkedin.com/in/muhammad-fahad-89a1b0358/)
