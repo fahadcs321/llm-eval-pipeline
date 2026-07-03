@@ -1,4 +1,4 @@
-.PHONY: help install install-dev lint format test eval-rag eval-deep gate cost drift clean
+.PHONY: help install install-dev lint format test eval-rag eval-deep gate cost drift ui clean
 
 help:
 	@echo "make install      - install full pipeline deps (deepeval, ragas, ...)"
@@ -11,6 +11,7 @@ help:
 	@echo "make gate         - run the CI quality gate over a results file"
 	@echo "make cost         - LiteLLM cost tracking over the golden dataset"
 	@echo "make drift        - drift detection vs 7-day baseline"
+	@echo "make ui           - run the Build-vs-Measure demo UI on :8502 (beside Project 1)"
 
 install:
 	pip install -r requirements.txt
@@ -42,6 +43,9 @@ cost:
 
 drift:
 	python scripts/drift_detector.py --current results/ragas_nightly.json
+
+ui:
+	streamlit run app/streamlit_app.py --server.port 8502
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .deepeval __pycache__ */__pycache__ */*/__pycache__

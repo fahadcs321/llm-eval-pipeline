@@ -33,3 +33,13 @@ pytest-asyncio>=0.23.0
 python-dotenv>=1.0.0
 pydantic>=2.7.0
 rich>=13.7.0
+
+# ── Local demo UI (app/streamlit_app.py — side by side with Project 1) ────────
+# The live "grade a question" column runs Project 1 in-process, so it also needs
+# Project 1's runtime deps (Qdrant, Cohere, LangGraph) and the ../self_healing_rag
+# checkout present + ingested. None of this is required for the CI quality gate,
+# which runs against the degraded Groq baseline when Project 1 is absent.
+streamlit>=1.37.0
+qdrant-client>=1.9.0
+cohere>=5.5.0
+langgraph>=0.2.0
