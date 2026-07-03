@@ -16,11 +16,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
-from evals.judge import get_deepeval_judge
-from system_under_test.rag_pipeline import query as rag_query
+# Make the repo root importable when run as a script (python evals/runners/run_deepeval.py),
+# not only as a module. The runners use absolute imports that need the repo root on sys.path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from evals.judge import get_deepeval_judge  # noqa: E402
+from system_under_test.rag_pipeline import query as rag_query  # noqa: E402
 
 # A faithfulness score below this counts a sample as a hallucination.
 HALLUCINATION_THRESHOLD = 0.5

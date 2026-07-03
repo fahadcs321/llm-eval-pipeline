@@ -16,11 +16,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
-from evals.judge import _install_ragas_compat, get_ragas_models
-from system_under_test.rag_pipeline import query as rag_query
+# Make the repo root importable when run as a script (python evals/runners/run_ragas.py),
+# not only as a module (python -m evals.runners.run_ragas). The runners use absolute
+# imports (evals.*, system_under_test.*), which need the repo root on sys.path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from evals.judge import _install_ragas_compat, get_ragas_models  # noqa: E402
+from system_under_test.rag_pipeline import query as rag_query  # noqa: E402
+
+
+def _get_int(name: str, default: int) -> int:
+    """Read an int from the environment, falling back to ``default``."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 def _aggregate(scores: Any, metric: str) -> float:
@@ -38,9 +56,12 @@ def _aggregate(scores: Any, metric: str) -> float:
     return float(series.mean()) if len(series) else 0.0
 
 
-def run_ragas_eval(golden_path: str, output_path: str) -> dict[str, float]:
+def run_ragas_eval(golden_path: str, output_path: str, limit: int | None = None) -> dict[str, float]:
     with open(golden_path, encoding="utf-8") as f:
         goldens = json.load(f)
+
+    if limit is not None and limit > 0:
+        goldens = goldens[:limit]
 
     questions, answers, contexts, ground_truths = [], [], [], []
 
@@ -63,6 +84,13 @@ def run_ragas_eval(golden_path: str, output_path: str) -> dict[str, float]:
         context_recall,
         faithfulness,
     )
+    from ragas.run_config import RunConfig
+
+    # RAGAS answer_relevancy generates `strictness` paraphrased questions in a
+    # single call via the LLM `n` parameter. Groq rejects n>1 ("'n': number must
+    # be at most 1"), so pin strictness to 1 for Groq-compatible scoring. Raise
+    # RAGAS_STRICTNESS on a provider that supports n>1 (e.g. OpenAI).
+    answer_relevancy.strictness = _get_int("RAGAS_STRICTNESS", 1)
 
     dataset = Dataset.from_dict(
         {
@@ -74,12 +102,23 @@ def run_ragas_eval(golden_path: str, output_path: str) -> dict[str, float]:
     )
 
     llm, embeddings = get_ragas_models()
-    print("Scoring with RAGAS (judge: Groq, embeddings: local)...")
+    # Serialize judge calls by default so free-tier rate limits don't trip RAGAS's
+    # 16-way concurrency into timeouts (faithfulness/recall/precision are the first
+    # to fail). Raise RAGAS_MAX_WORKERS on a dev-tier key for a faster full sweep.
+    run_config = RunConfig(
+        max_workers=_get_int("RAGAS_MAX_WORKERS", 1),
+        timeout=_get_int("RAGAS_TIMEOUT", 300),
+    )
+    print(
+        f"Scoring with RAGAS (judge: Groq, embeddings: local, "
+        f"max_workers={run_config.max_workers}, timeout={run_config.timeout}s)..."
+    )
     scores = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_recall, context_precision],
         llm=llm,
         embeddings=embeddings,
+        run_config=run_config,
     )
 
     results = {
@@ -106,9 +145,15 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run RAGAS evaluation.")
     parser.add_argument("--golden", default="evals/datasets/golden_rag.json")
     parser.add_argument("--output", default="results/ragas_nightly.json")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Evaluate only the first N golden pairs (useful for a quick, quota-safe demo).",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    run_ragas_eval(args.golden, args.output)
+    run_ragas_eval(args.golden, args.output, limit=args.limit)
