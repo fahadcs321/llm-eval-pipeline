@@ -1,0 +1,74 @@
+[
+  {
+    "question": "Kan personalet på plejecentret Anneshave fortsætte med at arbejde under de nuværende omstændigheder?",
+    "ground_truth": "Coronapandemien har skabt en kritisk personalesituation på ældreområdet i Aalborg Kommune, hvor op mod 200 medarbejdere pt. er fraværende. På plejecentret Anneshave har smitten ramt både personale og beboere hårdt, hvilket lægger et ekstremt pres på de tilbageværende ansatte. To social- og sundhedsassistenter fortæller, at de grundet mangel på hænder er tvunget til at springe essentielle opgaver over som f.eks. bad og træning, hvilket giver dem en følelse af ikke at kunne leve op til deres faglige ansvar. Selvom kommunen forsøger at afhjælpe situationen ved at omfordele personale og udbetale ekstra honorar for ekstravagter, slider det fysisk og psykisk på de ansatte at arbejde under konstant smittepres og med brug af værnemidler. Personalet understreger enstemmigt, at de ikke kan fortsætte på nuværende niveau, og at det er beboerne, der ender som de store tabere, medmindre der hurtigt findes flere hænder til opgaven.",
+    "language": "da",
+    "source_title": "Det er ikke en ny historie, at der mangler hænder på ældreområdet. Men lige nu m"
+  },
+  {
+    "question": "Hvad var straffen, der blev idømt til det ægtepar, der blev anklaget for skattesvig?",
+    "ground_truth": "Et ægtepar fra Arden-området er idømt et år og tre måneders fængsel samt hver en bøde på 1,7 millioner kroner for skattesvig. Gennem vikarbureauet Flexbagerne formidlede parret i seks år sortarbejdende bagersvende til bagerier over hele landet og udbetalte derved sorte lønninger for i alt 2,9 millioner kroner. Straffen svarer til anklagerens påstand, hvilket anklager Philip Pagter bekræfter over for P4 Nordjylland.",
+    "language": "da",
+    "source_title": "Et ægtepar fra Arden-området skal nu i fængsel efter at have snydt i skat over e"
+  },
+  {
+    "question": "Hvem afgjorde kampen mellem Frederikshavn White Hawks og Esbjerg efter overtid?",
+    "ground_truth": "Frederikshavn White Hawks sikrede sig tirsdag aften endnu en sejr i Metalligaen og cementerede dermed deres førsteplads med 24 point efter 12 kampe, hvilket giver et forspring på tre point til Herning. Kampen mod Esbjerg var tæt, idet udeholdet kom foran 0-2, før Frederikshavn reducerede gennem Kirils Galoha, hvorefter Esbjerg hurtigt øgede føringen igen. Aleksi Halme bragte kort før anden periodes slutning White Hawks på 2-3, og efter 54 minutter udlignede Elias Ulander til 3-3, hvilket sendte opgøret i overtid. Her afgjorde Christopher Eriksen kampen efter to minutter og 28 sekunder med målet til 4-3, så Frederikshavn nu ser frem til fredagens topopgør mod Herning Blue Fox.",
+    "language": "da",
+    "source_title": "Frederikshavn White Hawks lykkedes tirsdag aften med at sikre endnu en sejr i Me"
+  },
+  {
+    "question": "Was war in Auschwitz-Birkenau für Lisa Miková ein besonders schrecklicher Erlebnis?",
+    "ground_truth": "Transport im Viehwaggon, Fleischgeruch in der Luft, Selektion mit Doktor Mengele: Holocaust-Überlebende Lisa Miková erinnert sich an das Vernichtungslager Auschwitz-Birkenau.",
+    "language": "de",
+    "source_title": "So war Auschwitz: Erinnerungen einer Holocaust-Überlebenden"
+  },
+  {
+    "question": "War Sindelfingen jemals tatsächlich die reichste Kommune Europas?",
+    "ground_truth": "Marmorner Zebrastreifen, pompöse Gebäude: Sindelfingen galt - auch dank Daimler - einst als reichste Kommune Europas. Gerade deswegen ist die Stadt jetzt klamm.",
+    "language": "de",
+    "source_title": "Kommunen in Not (3): Sindelfingen - Jenseits goldener Zeiten"
+  },
+  {
+    "question": "Wer wird den Parteivorsitz der Linken nach Oskar Lafontaine übernehmen?",
+    "ground_truth": "Oskar Lafontaine gibt den Parteivorsitz der Linken ab - und seine Kollegen streiten, wer ihn beerben soll. sueddeutsche.de stellt die derzeit aussichtsreichsten Anwärter für Führungsaufgaben vor. Mit Vote.",
+    "language": "de",
+    "source_title": "Personaldebatte bei der Linken - Wer kommt nach Lafontaine?"
+  },
+  {
+    "question": "Quels auteurs célèbres sont attendus pour la rentrée littéraire de janvier ?",
+    "ground_truth": "Jean-Jacques Schuhl, Gilles Leroy, Christian Gailly, Yasmina Khadra, James Ellroy, Amos Oz, V. S. Naipaul… La rentrée de janvier s'annonce sous les meilleurs auspices.",
+    "language": "fr",
+    "source_title": "La rentrée littéraire promet un programme de belle qualité"
+  },
+  {
+    "question": "Quelle est la raison de cette demande ?",
+    "ground_truth": "Cette demande intervient une semaine après l'attaque terroriste manquée à bord d'un vol à destination des Etats-Unis par un jeune Nigérian qui avait séjourné au Yémen.",
+    "language": "fr",
+    "source_title": "Gordon Brown appelle à une réunion internationale sur le Yémen"
+  },
+  {
+    "question": "Les cinq employés de la société de sécurité ont-ils été reconnus coupables de l'attaque qui a tué quatorze Irakiens en 2007 ?",
+    "ground_truth": "Un juge américain a rejeté jeudi les accusations portées contre cinq employés de la société de sécurité, accusés d'avoir ouvert le feu à Bagdad sur la foule et tué quatorze Irakiens en 2007.",
+    "language": "fr",
+    "source_title": "L'abandon des poursuites contre Blackwater indigne l'Irak"
+  },
+  {
+    "question": "¿Qué tipo de contenido ofrece Telecinco para celebrar la Nochevieja?",
+    "ground_truth": "Sofres no ofrece datos por ser festivo.- Telecinco explota el filón y ofrece 'Belén da la campanada', un repaso de su vida y el 'making of' de su retransmisión de las uvas",
+    "language": "es",
+    "source_title": "¿Quién ganó en las campanadas?"
+  },
+  {
+    "question": "¿Cuánto tiempo han durado las demoras en el aeropuerto debido a la falta de controladores aéreos?",
+    "ground_truth": "El aeropuerto ha estado hasta las 15.00 con sólo dos pistas por ausencia de 5 de los 18 controladores aéreos.- Varias aerolíneas han denunciado demoras de \"hasta 60 minutos con los pasajeros embarcados\"",
+    "language": "es",
+    "source_title": "Las aerolíneas denuncian retrasos en Barajas provocados por los controladores"
+  },
+  {
+    "question": "¿Dónde nació el san Nicolás histórico?",
+    "ground_truth": "El origen de la leyenda, el san Nicolás histórico, nació en el siglo III en una ciudad entonces griega y ahora turca y sus restos fueron enterrados en Bari",
+    "language": "es",
+    "source_title": "Turquía reclama a Italia la devolución de los restos de Santa Claus"
+  }
+]

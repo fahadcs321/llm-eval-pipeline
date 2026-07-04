@@ -31,17 +31,46 @@ _DEFAULT_PROJECT_ONE = os.path.join(
 )
 
 
-@lru_cache(maxsize=1)
-def _load_project_one() -> Any | None:
-    """Import Project 1's ``answer_query``, or return None if unavailable."""
+def _ensure_project_one_path() -> None:
+    """Put Project 1's checkout on sys.path so its packages import."""
     project_path = os.getenv("SELF_HEALING_RAG_PATH", _DEFAULT_PROJECT_ONE)
     if project_path and project_path not in sys.path and os.path.isdir(project_path):
         sys.path.insert(0, project_path)
 
+
+@lru_cache(maxsize=1)
+def _load_project_one() -> Any | None:
+    """Import Project 1's ``answer_query``, or return None if unavailable."""
+    _ensure_project_one_path()
     try:
         from src.graph.graph import answer_query  # type: ignore
 
         return answer_query
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=1)
+def _load_news_sut() -> Any | None:
+    """Import the multilingual news RAG entry point (SUT_MODE=news).
+
+    Lives on Project 1's ``retriever-scale-demo`` branch under
+    ``scripts/retriever_demo`` and answers over the hybrid, multilingual news
+    index. Returns None if that branch/index isn't present, so the eval degrades
+    cleanly to the default SUT.
+    """
+    _ensure_project_one_path()
+    # Import as top-level ``retriever_demo`` (Project 1's scripts/ dir on the path),
+    # NOT ``scripts.retriever_demo`` — this repo has its own ``scripts`` package that
+    # would otherwise shadow it.
+    project_path = os.getenv("SELF_HEALING_RAG_PATH", _DEFAULT_PROJECT_ONE)
+    scripts_dir = os.path.join(project_path, "scripts")
+    if os.path.isdir(scripts_dir) and scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    try:
+        from retriever_demo.rag_over_news import answer_over_news  # type: ignore
+
+        return answer_over_news
     except Exception:
         return None
 
@@ -71,6 +100,20 @@ def query(question: str) -> dict[str, Any]:
         sources:  list[str]  — cited source document names (RAG only)
         contexts: list[str]  — the actual retrieved chunk texts (for RAGAS)
     """
+    # SUT_MODE=news evaluates the multilingual news RAG (hybrid retrieval over the
+    # 10k-article index) instead of the default Self-Healing RAG.
+    if os.getenv("SUT_MODE", "").lower() == "news":
+        answer_over_news = _load_news_sut()
+        if answer_over_news is not None:
+            result = answer_over_news(question)
+            return {
+                "answer": result.get("answer", ""),
+                "sources": result.get("sources", []),
+                "contexts": result.get("contexts", []),
+                "grounded": result.get("grounded", False),
+                "retries": result.get("retries", 0),
+            }
+
     answer_query = _load_project_one()
     if answer_query is not None:
         result = answer_query(question)

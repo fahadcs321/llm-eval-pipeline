@@ -253,15 +253,26 @@ def _fmt_threshold(metric: str) -> str:
     return f"≥ {spec.get('min')}"
 
 
-# ── Dashboard: load + render the latest cached eval run ───────────────────────
-def load_latest_results() -> tuple[dict, list[str]]:
-    """Merge every results/*.json (newest wins on conflict). Returns (metrics, filenames)."""
+# ── Dashboard: load + render the latest cached eval run, per system-under-test ─
+# Each SUT reads its own result files so the two are never blended.
+SUT_RESULT_FILES = {
+    "Self-Healing RAG (original)": {
+        "ragas_sample.json", "ragas_nightly.json", "ragas_pr.json",
+        "deepeval_nightly.json", "deepeval_pr.json", "cost_nightly.json",
+    },
+    "Multilingual News RAG": {"ragas_news.json"},
+}
+
+
+def load_results(allowed: set[str]) -> tuple[dict, list[str]]:
+    """Merge the given results/*.json files (newest wins). Returns (metrics, filenames)."""
     results_dir = ROOT / "results"
     merged: dict[str, float] = {}
     files: list[str] = []
     if not results_dir.is_dir():
         return merged, files
-    for path in sorted(results_dir.glob("*.json"), key=lambda p: p.stat().st_mtime):
+    paths = [p for p in results_dir.glob("*.json") if p.name in allowed]
+    for path in sorted(paths, key=lambda p: p.stat().st_mtime):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
@@ -275,18 +286,29 @@ def load_latest_results() -> tuple[dict, list[str]]:
     return merged, files
 
 
-def render_dashboard() -> None:
-    results, files = load_latest_results()
+def render_dashboard(sut_label: str) -> None:
+    results, files = load_results(SUT_RESULT_FILES.get(sut_label, set()))
+    is_news = sut_label == "Multilingual News RAG"
+    sut_note = (
+        "10k multilingual news articles · hybrid dense+BM25+RRF · Nordic golden pairs"
+        if is_news else "6-doc corpus · dense retrieval · English golden set"
+    )
     st.markdown(
-        f'<div class="label">{icon("gauge", 14)} Latest eval run — quality gate</div>',
+        f'<div class="label">{icon("gauge", 14)} {_escape(sut_label)} — quality gate '
+        f'<span style="color:{MUTED};text-transform:none;letter-spacing:0"> · {sut_note}</span></div>',
         unsafe_allow_html=True,
     )
 
     if not results:
+        cmd = (
+            "SUT_MODE=news EMBEDDING_MODEL=intfloat/multilingual-e5-small python evals/runners/run_ragas.py "
+            "--golden evals/datasets/golden_news.json --limit 4 --output results/ragas_news.json"
+            if is_news else
+            "python evals/runners/run_ragas.py --limit 3 --output results/ragas_sample.json"
+        )
         st.markdown(
-            f'<div class="card"><div class="reason">{icon("alert", 14)} No results yet. Run '
-            f"<code>python evals/runners/run_ragas.py --limit 3 --output results/ragas_sample.json</code> "
-            "to populate this dashboard.</div></div>",
+            f'<div class="card"><div class="reason">{icon("alert", 14)} No results for this system yet. '
+            f"Run <code>{cmd}</code>.</div></div>",
             unsafe_allow_html=True,
         )
         return
@@ -482,7 +504,11 @@ st.markdown(
 )
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
-render_dashboard()
+_sut = st.radio(
+    "System under test", list(SUT_RESULT_FILES.keys()),
+    horizontal=True, label_visibility="collapsed", key="sut_sel",
+)
+render_dashboard(_sut)
 
 # ── Live grade ────────────────────────────────────────────────────────────────
 st.markdown(
