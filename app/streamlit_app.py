@@ -1,7 +1,8 @@
 """
 streamlit_app.py — "Build ↔ Measure" demo for the LLM Eval CI/CD pipeline.
 
-One page, three parts, matching Project 1's "code dark + run green" design system:
+One page, three parts, in the shared "Reasoning Instrument" design system
+(violet-ink night, porcelain text; Bricolage Grotesque / Albert Sans / Spline Sans Mono):
 
   1. Quality-gate dashboard — the latest cached eval run (results/*.json) rendered
      as metric cards vs thresholds, with the real CI gate verdict on top.
@@ -57,15 +58,15 @@ st.set_page_config(
 )
 
 # ── Design tokens (identical to Project 1) ────────────────────────────────────
-BG = "#0F172A"
-SURFACE = "#1E293B"
-SURFACE_2 = "#172033"
-BORDER = "#334155"
-ACCENT = "#22C55E"
-DANGER = "#EF4444"
-WARN = "#F59E0B"
-TEXT = "#F8FAFC"
-MUTED = "#94A3B8"
+BG = "#0D0A1C"
+SURFACE = "#171232"
+SURFACE_2 = "#131028"
+BORDER = "#2A2450"
+ACCENT = "#3EE08F"
+DANGER = "#FF7A7A"
+WARN = "#FFD166"
+TEXT = "#F4F1E8"
+MUTED = "#9A94B8"
 
 EXAMPLES = [
     "What does the RAGAS faithfulness metric measure?",
@@ -114,38 +115,38 @@ def icon(name: str, size: int = 18) -> str:
 st.markdown(
     f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Albert+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
 :root {{ --bg:{BG}; --surface:{SURFACE}; --border:{BORDER}; --accent:{ACCENT}; --text:{TEXT}; --muted:{MUTED}; }}
 .stApp {{
   background:
-    radial-gradient(900px 500px at 50% -10%, rgba(34,197,94,0.10), transparent 60%),
-    radial-gradient(700px 400px at 100% 0%, rgba(56,189,248,0.06), transparent 55%),
+    radial-gradient(900px 500px at 50% -10%, rgba(62,224,143,0.10), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(125,225,255,0.06), transparent 55%),
     {BG};
-  font-family: 'Fira Sans', system-ui, sans-serif;
+  font-family: 'Albert Sans', system-ui, sans-serif;
 }}
 #MainMenu, header[data-testid="stHeader"], footer {{ display: none; }}
 .block-container {{ padding-top: 2.5rem; padding-bottom: 3rem; max-width: 1180px; }}
-code, .mono {{ font-family: 'Fira Code', monospace; }}
+code, .mono {{ font-family: 'Spline Sans Mono', monospace; }}
 
 .hero {{ text-align: center; margin-bottom: 1.5rem; }}
 .hero .badge {{
-  display:inline-flex; align-items:center; gap:.5rem; font-family:'Fira Code',monospace;
+  display:inline-flex; align-items:center; gap:.5rem; font-family:'Spline Sans Mono',monospace;
   font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:{ACCENT};
-  background:rgba(34,197,94,0.10); border:1px solid rgba(34,197,94,0.30);
+  background:rgba(62,224,143,0.10); border:1px solid rgba(62,224,143,0.30);
   padding:.35rem .8rem; border-radius:999px; margin-bottom:1rem;
 }}
 .hero h1 {{
-  font-size:2.5rem; font-weight:700; line-height:1.1; margin:0 0 .6rem;
-  background:linear-gradient(180deg,#FFFFFF,#B6C2D4);
+  font-family:'Bricolage Grotesque',sans-serif; font-size:2.5rem; font-weight:800; line-height:1.1; margin:0 0 .6rem;
+  background:linear-gradient(180deg,#FFFFFF,#CFC8E8);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent;
 }}
 .hero p {{ color:{MUTED}; font-size:1.0rem; max-width:640px; margin:0 auto; line-height:1.6; }}
 .flow {{ display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem; margin:1.1rem 0 .25rem;
-  font-family:'Fira Code',monospace; font-size:.76rem; }}
+  font-family:'Spline Sans Mono',monospace; font-size:.76rem; }}
 .flow span {{ color:{TEXT}; background:{SURFACE}; border:1px solid {BORDER}; padding:.28rem .6rem; border-radius:8px; }}
 .flow .arrow {{ color:{MUTED}; border:none; background:none; padding:.28rem .1rem; }}
 
-.label {{ display:flex; align-items:center; gap:.5rem; color:{MUTED}; font-family:'Fira Code',monospace;
+.label {{ display:flex; align-items:center; gap:.5rem; color:{MUTED}; font-family:'Spline Sans Mono',monospace;
   font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; margin:.2rem 0 .6rem; }}
 .label svg {{ color:{ACCENT}; }}
 
@@ -159,7 +160,7 @@ code, .mono {{ font-family: 'Fira Code', monospace; }}
 .gate {{ display:flex; align-items:center; gap:.9rem; border-radius:16px; padding:1.05rem 1.3rem;
   border:1px solid {BORDER}; margin-bottom:1rem; }}
 .gate .g-icon {{ display:flex; }}
-.gate .g-title {{ font-family:'Fira Code',monospace; font-weight:600; font-size:1.05rem; }}
+.gate .g-title {{ font-family:'Spline Sans Mono',monospace; font-weight:600; font-size:1.05rem; }}
 .gate .g-sub {{ color:{MUTED}; font-size:.82rem; margin-top:.1rem; }}
 
 /* metric grid */
@@ -169,46 +170,46 @@ code, .mono {{ font-family: 'Fira Code', monospace; }}
 .metric.pass {{ border-left-color:{ACCENT}; }}
 .metric.fail {{ border-left-color:{DANGER}; }}
 .metric .m-top {{ display:flex; align-items:center; justify-content:space-between; }}
-.metric .m-name {{ font-family:'Fira Code',monospace; font-size:.7rem; letter-spacing:.04em;
+.metric .m-name {{ font-family:'Spline Sans Mono',monospace; font-size:.7rem; letter-spacing:.04em;
   text-transform:uppercase; color:{MUTED}; }}
-.metric .m-val {{ font-family:'Fira Code',monospace; font-size:1.35rem; font-weight:600; color:{TEXT}; margin:.25rem 0 .1rem; }}
-.metric .m-thr {{ font-family:'Fira Code',monospace; font-size:.72rem; color:{MUTED}; }}
+.metric .m-val {{ font-family:'Spline Sans Mono',monospace; font-size:1.35rem; font-weight:600; color:{TEXT}; margin:.25rem 0 .1rem; }}
+.metric .m-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.72rem; color:{MUTED}; }}
 
 /* two-column headers */
-.colhead {{ display:flex; align-items:center; gap:.55rem; font-family:'Fira Code',monospace;
+.colhead {{ display:flex; align-items:center; gap:.55rem; font-family:'Spline Sans Mono',monospace;
   font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; padding:.4rem .2rem .7rem; }}
 .colhead .p1 {{ color:{ACCENT}; }}
-.colhead .p2 {{ color:#38BDF8; }}
+.colhead .p2 {{ color:#7DE1FF; }}
 
 .stats {{ display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin:.25rem 0 1rem; }}
 .stat {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:12px; padding:.85rem 1rem; text-align:center; }}
-.stat .k {{ font-family:'Fira Code',monospace; font-size:.66rem; letter-spacing:.06em; text-transform:uppercase; color:{MUTED}; }}
-.stat .v {{ font-family:'Fira Code',monospace; font-size:1.2rem; font-weight:600; color:{TEXT}; margin-top:.25rem; }}
+.stat .k {{ font-family:'Spline Sans Mono',monospace; font-size:.66rem; letter-spacing:.06em; text-transform:uppercase; color:{MUTED}; }}
+.stat .v {{ font-family:'Spline Sans Mono',monospace; font-size:1.2rem; font-weight:600; color:{TEXT}; margin-top:.25rem; }}
 .reason {{ color:{MUTED}; font-size:.9rem; line-height:1.6; border-left:2px solid {BORDER}; padding-left:.85rem; margin:.2rem 0 1rem; }}
 .reason b {{ color:{TEXT}; }}
-.src {{ display:inline-flex; align-items:center; gap:.4rem; font-family:'Fira Code',monospace; font-size:.76rem;
+.src {{ display:inline-flex; align-items:center; gap:.4rem; font-family:'Spline Sans Mono',monospace; font-size:.76rem;
   color:{TEXT}; background:{SURFACE_2}; border:1px solid {BORDER}; padding:.3rem .6rem; border-radius:8px; margin:0 .4rem .4rem 0; }}
 .src svg {{ color:{ACCENT}; }}
 .ctx {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-left:3px solid {ACCENT}; border-radius:10px;
   padding:.7rem .9rem; margin-bottom:.55rem; color:#CBD5E1; font-size:.86rem; line-height:1.6; }}
-.ctx .n {{ font-family:'Fira Code',monospace; color:{ACCENT}; font-weight:600; margin-right:.4rem; }}
+.ctx .n {{ font-family:'Spline Sans Mono',monospace; color:{ACCENT}; font-weight:600; margin-right:.4rem; }}
 
 /* judge rows */
 .jrow {{ display:flex; align-items:center; justify-content:space-between; gap:.6rem;
   background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:10px; padding:.6rem .85rem; margin-bottom:.5rem; }}
 .jrow .j-left {{ display:flex; align-items:center; gap:.55rem; }}
-.jrow .j-name {{ font-family:'Fira Code',monospace; font-size:.82rem; color:{TEXT}; }}
-.jrow .j-thr {{ font-family:'Fira Code',monospace; font-size:.7rem; color:{MUTED}; }}
-.jrow .j-val {{ font-family:'Fira Code',monospace; font-size:1.0rem; font-weight:600; }}
+.jrow .j-name {{ font-family:'Spline Sans Mono',monospace; font-size:.82rem; color:{TEXT}; }}
+.jrow .j-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.7rem; color:{MUTED}; }}
+.jrow .j-val {{ font-family:'Spline Sans Mono',monospace; font-size:1.0rem; font-weight:600; }}
 
 .stTextInput input {{ background:{SURFACE}!important; border:1px solid {BORDER}!important; border-radius:12px!important;
   color:{TEXT}!important; font-size:1rem!important; }}
-.stTextInput input:focus {{ border-color:{ACCENT}!important; box-shadow:0 0 0 3px rgba(34,197,94,0.18)!important; }}
+.stTextInput input:focus {{ border-color:{ACCENT}!important; box-shadow:0 0 0 3px rgba(62,224,143,0.18)!important; }}
 div.stButton > button {{ border-radius:10px; border:1px solid {BORDER}; background:{SURFACE}; color:{TEXT};
-  font-family:'Fira Code',monospace; font-size:.8rem; font-weight:500; transition:border-color .2s,color .2s,background .2s; }}
+  font-family:'Spline Sans Mono',monospace; font-size:.8rem; font-weight:500; transition:border-color .2s,color .2s,background .2s; }}
 div.stButton > button:hover {{ border-color:{ACCENT}; color:{ACCENT}; background:{SURFACE_2}; }}
-div.stButton > button[kind="primary"] {{ background:{ACCENT}; border:1px solid {ACCENT}; color:#06210F; font-weight:700; }}
-div.stButton > button[kind="primary"]:hover {{ background:#1FB055; border-color:#1FB055; color:#06210F; }}
+div.stButton > button[kind="primary"] {{ background:{ACCENT}; border:1px solid {ACCENT}; color:#052015; font-weight:700; }}
+div.stButton > button[kind="primary"]:hover {{ background:#2BC77B; border-color:#2BC77B; color:#052015; }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition:none!important; animation:none!important; }} }}
 </style>
 """,
@@ -314,7 +315,7 @@ def render_dashboard(sut_label: str) -> None:
         return
 
     passed, _ = evaluate_gates(results, layer="nightly")
-    g_color, g_bg = (ACCENT, "rgba(34,197,94,0.10)") if passed else (DANGER, "rgba(239,68,68,0.10)")
+    g_color, g_bg = (ACCENT, "rgba(62,224,143,0.10)") if passed else (DANGER, "rgba(255,122,122,0.10)")
     g_icon = icon("check", 22) if passed else icon("x", 22)
     g_text = "GATE: PASS — merge allowed" if passed else "GATE: FAIL — merge blocked"
     src = ", ".join(files) if files else "—"
@@ -407,7 +408,7 @@ def run_sut(question: str) -> dict:
 # ── Renderers for the two columns ─────────────────────────────────────────────
 def render_p1(result: dict) -> None:
     grounded = result.get("grounded", False)
-    color, bg = (ACCENT, "rgba(34,197,94,0.12)") if grounded else (WARN, "rgba(245,158,11,0.12)")
+    color, bg = (ACCENT, "rgba(62,224,143,0.12)") if grounded else (WARN, "rgba(255,209,102,0.12)")
     status_icon = icon("check") if grounded else icon("alert")
     status_text = "Grounded answer" if grounded else "Refused — could not ground"
     verdict = (result.get("critique") or "n/a").lower()
@@ -549,7 +550,7 @@ if run and st.session_state.q.strip():
         st.markdown(
             f"""
 <div class="card" style="border-color:{DANGER}">
-  <span class="pill" style="color:{DANGER}; background:rgba(239,68,68,0.12)">{icon('alert')} Pipeline error</span>
+  <span class="pill" style="color:{DANGER}; background:rgba(255,122,122,0.12)">{icon('alert')} Pipeline error</span>
   <div class="answer-card mono" style="font-size:.88rem; color:#FCA5A5">{_escape(str(exc))}</div>
   <div class="reason" style="margin-top:.8rem">Check that Qdrant is running and ingested, and that
   <code>GROQ_API_KEY</code> / <code>COHERE_API_KEY</code> are set (Streamlit secrets when deployed,
@@ -567,7 +568,7 @@ elif run:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(
     f"""
-<div style="text-align:center; margin-top:2.5rem; color:{MUTED}; font-family:'Fira Code',monospace; font-size:.74rem; line-height:1.9">
+<div style="text-align:center; margin-top:2.5rem; color:{MUTED}; font-family:'Spline Sans Mono',monospace; font-size:.74rem; line-height:1.9">
   Project 2 measures <a href="https://github.com/fahadcs321/self-healing-rag" style="color:{ACCENT}; text-decoration:none">Self-Healing RAG</a>
   · DeepEval + RAGAS + LiteLLM · Groq judge, local embeddings<br>
   <a href="https://github.com/fahadcs321/llm-eval-pipeline" style="color:{ACCENT}; text-decoration:none">github.com/fahadcs321/llm-eval-pipeline</a>
