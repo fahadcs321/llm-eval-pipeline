@@ -1,17 +1,18 @@
 """
 streamlit_app.py — "Build ↔ Measure" demo for the LLM Eval CI/CD pipeline.
 
-One page, three parts, in the shared "Reasoning Instrument" design system
-(violet-ink night, porcelain text; Bricolage Grotesque / Albert Sans / Spline Sans Mono):
+Design: "Mission Control" — a CI-status view of LLM quality. The signature
+element is the threshold bar on every metric card: the fill is the score, the
+tick is the gate threshold, and the color is the verdict. The gate banner reads
+like a build status, because that is exactly what it is.
 
-  1. Quality-gate dashboard — the latest cached eval run (results/*.json) rendered
-     as metric cards vs thresholds, with the real CI gate verdict on top.
-  2. Live "grade a question" — two columns:
-       left  = Project 1 (Self-Healing RAG) answers + shows its own self-heal trace
-       right = Project 2 (this pipeline) judges that answer independently and
-               applies the same threshold gate.
-     The story: P1 says "I'm grounded" (self-critique); P2 verifies it with an
-     external LLM-as-judge and a hard pass/fail gate.
+  1. Quality-gate dashboard — the latest cached eval run (results/*.json) as
+     metric cards with threshold bars, per system-under-test.
+  2. Live "grade a question" — left: Project 1 answers with its self-heal trace;
+     right: this pipeline judges the answer independently and gates it.
+
+Shared "Reasoning Instrument" system: violet-ink night, porcelain text,
+Bricolage Grotesque / Albert Sans / Spline Sans Mono.
 
 Run with:
     streamlit run app/streamlit_app.py --server.port 8502     # beside P1 on :8501
@@ -30,8 +31,7 @@ sys.path.insert(0, str(ROOT))
 import streamlit as st  # noqa: E402
 
 # Bridge Streamlit Cloud secrets into the environment BEFORE importing anything that
-# reads os.getenv (the judge config, Project 1's config). Streamlit does not reliably
-# expose secrets as env vars, so we do it explicitly. .strip() guards pasted newlines.
+# reads os.getenv. .strip() guards pasted newlines.
 try:
     for _key, _val in st.secrets.items():
         if isinstance(_val, str):
@@ -57,14 +57,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Design tokens (identical to Project 1) ────────────────────────────────────
+# ── Design tokens ─────────────────────────────────────────────────────────────
 BG = "#0D0A1C"
 SURFACE = "#171232"
 SURFACE_2 = "#131028"
 BORDER = "#2A2450"
-ACCENT = "#3EE08F"
-DANGER = "#FF7A7A"
+OK = "#3EE08F"
+BAD = "#FF7A7A"
 WARN = "#FFD166"
+ICE = "#7DE1FF"
+VIOLET = "#9F8BFF"
 TEXT = "#F4F1E8"
 MUTED = "#9A94B8"
 
@@ -72,28 +74,29 @@ EXAMPLES = [
     "What does the RAGAS faithfulness metric measure?",
     "What does LangGraph enable that a LangChain chain cannot?",
     "What is the difference between dense and sparse retrieval?",
-    "Who won the 2022 FIFA World Cup?",  # off-corpus → shows honest refusal + a low judge score
+    "Who won the 2022 FIFA World Cup?",  # off-corpus → honest refusal + a low judge score
 ]
 
 # Metrics we surface in the dashboard, grouped by source (only shown if present).
 METRIC_GROUPS = [
-    ("RAGAS · retrieval quality", ["faithfulness", "answer_relevancy", "context_recall", "context_precision"]),
-    ("DeepEval · safety & scope", ["hallucination_rate", "toxicity_score", "bias_score", "geval_on_topic"]),
+    ("RAGAS · retrieval quality",
+     ["faithfulness", "answer_relevancy", "context_recall", "context_precision"]),
+    ("DeepEval · safety & scope",
+     ["hallucination_rate", "toxicity_score", "bias_score", "geval_on_topic"]),
     ("Cost & latency", ["cost_per_query_usd", "latency_p95_ms"]),
 ]
 
 
-# ── SVG icon set (Lucide-style, inherit currentColor) ─────────────────────────
-def icon(name: str, size: int = 18) -> str:
+def icon(name: str, size: int = 15) -> str:
     paths = {
         "gauge": '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
         "scale": '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>'
         '<path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>'
         '<path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
         "check": '<path d="M20 6 9 17l-5-5"/>',
+        "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         "alert": '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 '
         '2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-        "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         "doc": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>'
         '<path d="M14 2v5h5"/>',
@@ -111,105 +114,123 @@ def icon(name: str, size: int = 18) -> str:
     )
 
 
-# ── Global styles (Project 1 tokens + eval-specific components) ────────────────
+# ── Global styles ─────────────────────────────────────────────────────────────
 st.markdown(
     f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Albert+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
-:root {{ --bg:{BG}; --surface:{SURFACE}; --border:{BORDER}; --accent:{ACCENT}; --text:{TEXT}; --muted:{MUTED}; }}
 .stApp {{
   background:
-    radial-gradient(900px 500px at 50% -10%, rgba(62,224,143,0.10), transparent 60%),
-    radial-gradient(700px 400px at 100% 0%, rgba(125,225,255,0.06), transparent 55%),
+    radial-gradient(1000px 520px at 12% -12%, rgba(159,139,255,0.13), transparent 60%),
+    radial-gradient(800px 460px at 95% -8%, rgba(125,225,255,0.08), transparent 55%),
     {BG};
-  font-family: 'Albert Sans', system-ui, sans-serif;
+  font-family: 'Albert Sans', system-ui, sans-serif; color: {TEXT};
 }}
 #MainMenu, header[data-testid="stHeader"], footer {{ display: none; }}
-.block-container {{ padding-top: 2.5rem; padding-bottom: 3rem; max-width: 1180px; }}
+.block-container {{ padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1180px; }}
 code, .mono {{ font-family: 'Spline Sans Mono', monospace; }}
 
-.hero {{ text-align: center; margin-bottom: 1.5rem; }}
-.hero .badge {{
+/* ── mission-control header (left-aligned) ───────────── */
+.eyebrow {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.9rem; }}
+.eyebrow .tag {{
   display:inline-flex; align-items:center; gap:.5rem; font-family:'Spline Sans Mono',monospace;
-  font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:{ACCENT};
-  background:rgba(62,224,143,0.10); border:1px solid rgba(62,224,143,0.30);
-  padding:.35rem .8rem; border-radius:999px; margin-bottom:1rem;
+  font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:{ICE};
 }}
-.hero h1 {{
-  font-family:'Bricolage Grotesque',sans-serif; font-size:2.5rem; font-weight:800; line-height:1.1; margin:0 0 .6rem;
+.eyebrow .sut {{
+  font-family:'Spline Sans Mono',monospace; font-size:.66rem; letter-spacing:.06em;
+  color:{MUTED}; border:1px solid {BORDER}; border-radius:999px; padding:.25rem .7rem;
+}}
+.eyebrow .sut b {{ color:{OK}; font-weight:600; }}
+.masthead {{ display:flex; align-items:flex-end; justify-content:space-between; gap:2rem;
+  border-bottom:1px solid {BORDER}; padding-bottom:1.3rem; margin-bottom:1.3rem; flex-wrap:wrap; }}
+.masthead h1 {{
+  font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:3rem;
+  line-height:1.02; letter-spacing:-.015em; margin:0; max-width:560px;
   background:linear-gradient(180deg,#FFFFFF,#CFC8E8);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent;
 }}
-.hero p {{ color:{MUTED}; font-size:1.0rem; max-width:640px; margin:0 auto; line-height:1.6; }}
-.flow {{ display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem; margin:1.1rem 0 .25rem;
-  font-family:'Spline Sans Mono',monospace; font-size:.76rem; }}
-.flow span {{ color:{TEXT}; background:{SURFACE}; border:1px solid {BORDER}; padding:.28rem .6rem; border-radius:8px; }}
-.flow .arrow {{ color:{MUTED}; border:none; background:none; padding:.28rem .1rem; }}
+.masthead .side {{ max-width:400px; }}
+.masthead .side p {{ color:{MUTED}; font-size:.98rem; line-height:1.65; margin:0 0 .8rem; }}
+.flow {{ display:flex; flex-wrap:wrap; gap:.35rem; font-family:'Spline Sans Mono',monospace; font-size:.72rem; }}
+.flow span {{ color:{TEXT}; background:{SURFACE}; border:1px solid {BORDER};
+  padding:.24rem .55rem; border-radius:7px; }}
+.flow .arrow {{ color:{MUTED}; border:none; background:none; padding:.24rem .05rem; }}
 
 .label {{ display:flex; align-items:center; gap:.5rem; color:{MUTED}; font-family:'Spline Sans Mono',monospace;
-  font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; margin:.2rem 0 .6rem; }}
-.label svg {{ color:{ACCENT}; }}
-
-.card {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:16px; padding:1.3rem 1.4rem;
-  box-shadow:0 10px 30px rgba(0,0,0,0.25); }}
+  font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; margin:.2rem 0 .6rem; }}
+.label svg {{ color:{ICE}; }}
+.card {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:16px;
+  padding:1.25rem 1.35rem; box-shadow:0 12px 32px rgba(0,0,0,0.3); }}
 .answer-card {{ font-size:1.02rem; line-height:1.7; color:{TEXT}; }}
-.pill {{ display:inline-flex; align-items:center; gap:.45rem; font-weight:600; font-size:.82rem;
-  padding:.35rem .75rem; border-radius:999px; margin-bottom:.9rem; }}
+.pill {{ display:inline-flex; align-items:center; gap:.45rem; font-weight:600; font-size:.8rem;
+  font-family:'Spline Sans Mono',monospace; padding:.32rem .7rem; border-radius:999px; margin-bottom:.9rem; }}
 
-/* gate banner */
-.gate {{ display:flex; align-items:center; gap:.9rem; border-radius:16px; padding:1.05rem 1.3rem;
-  border:1px solid {BORDER}; margin-bottom:1rem; }}
-.gate .g-icon {{ display:flex; }}
-.gate .g-title {{ font-family:'Spline Sans Mono',monospace; font-weight:600; font-size:1.05rem; }}
-.gate .g-sub {{ color:{MUTED}; font-size:.82rem; margin-top:.1rem; }}
+/* ── gate status block ───────────────────────────────── */
+.gate {{ display:flex; align-items:center; gap:1rem; border-radius:14px; padding:1.1rem 1.3rem;
+  border:1px solid {BORDER}; margin-bottom:1.1rem; }}
+.gate .g-dot {{ width:14px; height:14px; border-radius:50%; flex:none; }}
+.gate .g-title {{ font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:1.35rem;
+  letter-spacing:-.01em; line-height:1.1; }}
+.gate .g-sub {{ color:{MUTED}; font-family:'Spline Sans Mono',monospace; font-size:.72rem; margin-top:.3rem; }}
 
-/* metric grid */
-.mgrid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:.7rem; margin:.2rem 0 1rem; }}
-.metric {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-left:3px solid {BORDER};
-  border-radius:12px; padding:.8rem .95rem; }}
-.metric.pass {{ border-left-color:{ACCENT}; }}
-.metric.fail {{ border-left-color:{DANGER}; }}
-.metric .m-top {{ display:flex; align-items:center; justify-content:space-between; }}
-.metric .m-name {{ font-family:'Spline Sans Mono',monospace; font-size:.7rem; letter-spacing:.04em;
+/* ── metric cards with threshold bars (the signature) ── */
+.mgrid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:.7rem; margin:.2rem 0 1.1rem; }}
+.metric {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:12px; padding:.85rem 1rem .95rem; }}
+.metric .m-top {{ display:flex; justify-content:space-between; align-items:center; }}
+.metric .m-name {{ font-family:'Spline Sans Mono',monospace; font-size:.66rem; letter-spacing:.05em;
   text-transform:uppercase; color:{MUTED}; }}
-.metric .m-val {{ font-family:'Spline Sans Mono',monospace; font-size:1.35rem; font-weight:600; color:{TEXT}; margin:.25rem 0 .1rem; }}
-.metric .m-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.72rem; color:{MUTED}; }}
+.metric .m-val {{ font-family:'Spline Sans Mono',monospace; font-size:1.5rem; font-weight:600;
+  color:{TEXT}; margin:.3rem 0 .45rem; }}
+.metric .bar {{ position:relative; height:6px; border-radius:99px; background:rgba(154,148,190,.14); overflow:visible; }}
+.metric .bar .fill {{ position:absolute; inset:0 auto 0 0; border-radius:99px; }}
+.metric .bar .tick {{ position:absolute; top:-3px; bottom:-3px; width:2px; background:{ICE};
+  border-radius:2px; box-shadow:0 0 6px rgba(125,225,255,.7); }}
+.metric .m-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.68rem; color:{MUTED}; margin-top:.5rem; }}
 
-/* two-column headers */
+/* segmented SUT selector */
+div[role="radiogroup"] {{ gap:.4rem; }}
+div[role="radiogroup"] label {{
+  background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:999px !important;
+  padding:.3rem .9rem !important; font-family:'Spline Sans Mono',monospace !important;
+}}
+
+/* two-column live grade */
 .colhead {{ display:flex; align-items:center; gap:.55rem; font-family:'Spline Sans Mono',monospace;
-  font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; padding:.4rem .2rem .7rem; }}
-.colhead .p1 {{ color:{ACCENT}; }}
-.colhead .p2 {{ color:#7DE1FF; }}
-
-.stats {{ display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin:.25rem 0 1rem; }}
-.stat {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:12px; padding:.85rem 1rem; text-align:center; }}
-.stat .k {{ font-family:'Spline Sans Mono',monospace; font-size:.66rem; letter-spacing:.06em; text-transform:uppercase; color:{MUTED}; }}
-.stat .v {{ font-family:'Spline Sans Mono',monospace; font-size:1.2rem; font-weight:600; color:{TEXT}; margin-top:.25rem; }}
-.reason {{ color:{MUTED}; font-size:.9rem; line-height:1.6; border-left:2px solid {BORDER}; padding-left:.85rem; margin:.2rem 0 1rem; }}
+  font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; padding:.4rem .2rem .7rem; }}
+.colhead .p1 {{ color:{OK}; }}
+.colhead .p2 {{ color:{ICE}; }}
+.stats {{ display:grid; grid-template-columns:repeat(3,1fr); gap:.7rem; margin:.9rem 0 1rem; }}
+.stat {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:12px; padding:.8rem 1rem; text-align:center; }}
+.stat .k {{ font-family:'Spline Sans Mono',monospace; font-size:.64rem; letter-spacing:.06em;
+  text-transform:uppercase; color:{MUTED}; }}
+.stat .v {{ font-family:'Spline Sans Mono',monospace; font-size:1.15rem; font-weight:600; color:{TEXT}; margin-top:.25rem; }}
+.reason {{ color:{MUTED}; font-size:.9rem; line-height:1.6; border-left:2px solid {BORDER};
+  padding-left:.85rem; margin:.2rem 0 1rem; }}
 .reason b {{ color:{TEXT}; }}
-.src {{ display:inline-flex; align-items:center; gap:.4rem; font-family:'Spline Sans Mono',monospace; font-size:.76rem;
-  color:{TEXT}; background:{SURFACE_2}; border:1px solid {BORDER}; padding:.3rem .6rem; border-radius:8px; margin:0 .4rem .4rem 0; }}
-.src svg {{ color:{ACCENT}; }}
-.ctx {{ background:{SURFACE_2}; border:1px solid {BORDER}; border-left:3px solid {ACCENT}; border-radius:10px;
-  padding:.7rem .9rem; margin-bottom:.55rem; color:#CBD5E1; font-size:.86rem; line-height:1.6; }}
-.ctx .n {{ font-family:'Spline Sans Mono',monospace; color:{ACCENT}; font-weight:600; margin-right:.4rem; }}
-
-/* judge rows */
+.src {{ display:inline-flex; align-items:center; gap:.4rem; font-family:'Spline Sans Mono',monospace;
+  font-size:.74rem; color:{TEXT}; background:rgba(139,125,255,0.06); border:1px solid {BORDER};
+  padding:.3rem .6rem; border-radius:8px; margin:0 .4rem .4rem 0; }}
+.src svg {{ color:{ICE}; }}
+.ctx {{ background:rgba(13,10,28,0.5); border:1px solid {BORDER}; border-left:3px solid {VIOLET};
+  border-radius:10px; padding:.7rem .9rem; margin-bottom:.55rem; color:#C9C4DE; font-size:.86rem; line-height:1.6; }}
+.ctx .n {{ font-family:'Spline Sans Mono',monospace; color:{VIOLET}; font-weight:600; margin-right:.4rem; }}
 .jrow {{ display:flex; align-items:center; justify-content:space-between; gap:.6rem;
   background:{SURFACE_2}; border:1px solid {BORDER}; border-radius:10px; padding:.6rem .85rem; margin-bottom:.5rem; }}
 .jrow .j-left {{ display:flex; align-items:center; gap:.55rem; }}
 .jrow .j-name {{ font-family:'Spline Sans Mono',monospace; font-size:.82rem; color:{TEXT}; }}
-.jrow .j-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.7rem; color:{MUTED}; }}
-.jrow .j-val {{ font-family:'Spline Sans Mono',monospace; font-size:1.0rem; font-weight:600; }}
+.jrow .j-thr {{ font-family:'Spline Sans Mono',monospace; font-size:.68rem; color:{MUTED}; }}
+.jrow .j-val {{ font-family:'Spline Sans Mono',monospace; font-size:1rem; font-weight:600; }}
 
-.stTextInput input {{ background:{SURFACE}!important; border:1px solid {BORDER}!important; border-radius:12px!important;
-  color:{TEXT}!important; font-size:1rem!important; }}
-.stTextInput input:focus {{ border-color:{ACCENT}!important; box-shadow:0 0 0 3px rgba(62,224,143,0.18)!important; }}
+.stTextInput input {{ background:{SURFACE}!important; border:1px solid {BORDER}!important;
+  border-radius:12px!important; color:{TEXT}!important; font-size:1rem!important; }}
+.stTextInput input:focus {{ border-color:{ICE}!important; box-shadow:0 0 0 3px rgba(125,225,255,0.15)!important; }}
 div.stButton > button {{ border-radius:10px; border:1px solid {BORDER}; background:{SURFACE}; color:{TEXT};
-  font-family:'Spline Sans Mono',monospace; font-size:.8rem; font-weight:500; transition:border-color .2s,color .2s,background .2s; }}
-div.stButton > button:hover {{ border-color:{ACCENT}; color:{ACCENT}; background:{SURFACE_2}; }}
-div.stButton > button[kind="primary"] {{ background:{ACCENT}; border:1px solid {ACCENT}; color:#052015; font-weight:700; }}
+  font-family:'Albert Sans',sans-serif; font-size:.86rem; font-weight:500;
+  transition:border-color .2s,color .2s,background .2s; }}
+div.stButton > button:hover {{ border-color:{ICE}; color:{ICE}; background:rgba(125,225,255,0.05); }}
+div.stButton > button[kind="primary"] {{ background:{OK}; border:1px solid {OK}; color:#052015; font-weight:700; }}
 div.stButton > button[kind="primary"]:hover {{ background:#2BC77B; border-color:#2BC77B; color:#052015; }}
+@media (max-width: 760px) {{ .masthead h1 {{ font-size:2.1rem; }} }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition:none!important; animation:none!important; }} }}
 </style>
 """,
@@ -217,26 +238,9 @@ div.stButton > button[kind="primary"]:hover {{ background:#2BC77B; border-color:
 )
 
 
-# ── Small HTML helpers (shared with Project 1's renderer) ─────────────────────
-def _escape(text: str) -> str:
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def _escape(text) -> str:
     return (str(text) if text is not None else "").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def _sources_html(sources: list) -> str:
-    if not sources:
-        return ""
-    chips = "".join(f'<span class="src">{icon("doc", 13)}{_escape(s)}</span>' for s in sources)
-    return f'<div style="margin-bottom:.9rem">{chips}</div>'
-
-
-def _contexts_html(contexts: list) -> str:
-    if not contexts:
-        return ""
-    blocks = ""
-    for i, ctx in enumerate(contexts, start=1):
-        preview = _escape(ctx[:360] + ("…" if len(ctx) > 360 else ""))
-        blocks += f'<div class="ctx"><span class="n">[{i}]</span>{preview}</div>'
-    return f'<div class="label" style="margin-top:.4rem">{icon("search", 13)} Retrieved context</div>{blocks}'
 
 
 def _fmt_value(metric: str, value: float) -> str:
@@ -254,8 +258,33 @@ def _fmt_threshold(metric: str) -> str:
     return f"≥ {spec.get('min')}"
 
 
-# ── Dashboard: load + render the latest cached eval run, per system-under-test ─
-# Each SUT reads its own result files so the two are never blended.
+def _metric_card(metric: str, value: float) -> str:
+    """A metric card with the signature threshold bar: fill = score, tick = gate."""
+    spec = THRESHOLDS.get(metric, {})
+    ok, _ = check_metric(metric, value)
+    color = OK if ok else BAD
+    if spec.get("direction") == "lower_is_better":
+        thr = float(spec.get("max", 1.0))
+        scale = max(2 * thr, value * 1.15, 1e-9)
+    else:
+        thr = float(spec.get("min", 1.0))
+        scale = max(1.0, value * 1.05)
+    fill = min(value / scale * 100, 100)
+    tick = min(thr / scale * 100, 100)
+    mark = (
+        f'<span style="color:{OK}">{icon("check", 14)}</span>' if ok
+        else f'<span style="color:{BAD}">{icon("x", 14)}</span>'
+    )
+    return (
+        f'<div class="metric"><div class="m-top"><span class="m-name">{metric}</span>{mark}</div>'
+        f'<div class="m-val" style="color:{color}">{_fmt_value(metric, value)}</div>'
+        f'<div class="bar"><div class="fill" style="width:{fill:.1f}%; background:{color}"></div>'
+        f'<div class="tick" style="left:{tick:.1f}%"></div></div>'
+        f'<div class="m-thr">gate {_fmt_threshold(metric)}</div></div>'
+    )
+
+
+# ── Dashboard data: per system-under-test result files (never blended) ─────────
 SUT_RESULT_FILES = {
     "Self-Healing RAG (original)": {
         "ragas_sample.json", "ragas_nightly.json", "ragas_pr.json",
@@ -295,8 +324,8 @@ def render_dashboard(sut_label: str) -> None:
         if is_news else "6-doc corpus · dense retrieval · English golden set"
     )
     st.markdown(
-        f'<div class="label">{icon("gauge", 14)} {_escape(sut_label)} — quality gate '
-        f'<span style="color:{MUTED};text-transform:none;letter-spacing:0"> · {sut_note}</span></div>',
+        f'<div class="label">{icon("gauge", 14)} {_escape(sut_label)} '
+        f'<span style="text-transform:none;letter-spacing:0">· {sut_note}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -315,8 +344,7 @@ def render_dashboard(sut_label: str) -> None:
         return
 
     passed, _ = evaluate_gates(results, layer="nightly")
-    g_color, g_bg = (ACCENT, "rgba(62,224,143,0.10)") if passed else (DANGER, "rgba(255,122,122,0.10)")
-    g_icon = icon("check", 22) if passed else icon("x", 22)
+    g_color = OK if passed else BAD
     g_text = "GATE: PASS — merge allowed" if passed else "GATE: FAIL — merge blocked"
     src = ", ".join(files) if files else "—"
 
@@ -325,29 +353,17 @@ def render_dashboard(sut_label: str) -> None:
         present = [m for m in metrics if m in results]
         if not present:
             continue
-        cells = ""
-        for m in present:
-            ok, _ = check_metric(m, results[m])
-            cls = "pass" if ok else "fail"
-            tick = (
-                f'<span style="color:{ACCENT}">{icon("check", 15)}</span>'
-                if ok
-                else f'<span style="color:{DANGER}">{icon("x", 15)}</span>'
-            )
-            cells += (
-                f'<div class="metric {cls}"><div class="m-top"><span class="m-name">{m}</span>{tick}</div>'
-                f'<div class="m-val">{_fmt_value(m, results[m])}</div>'
-                f'<div class="m-thr">threshold {_fmt_threshold(m)}</div></div>'
-            )
-        cards += f'<div class="label" style="margin-top:.3rem">{group_title}</div><div class="mgrid">{cells}</div>'
+        cells = "".join(_metric_card(m, results[m]) for m in present)
+        cards += f'<div class="label" style="margin-top:.4rem">{group_title}</div><div class="mgrid">{cells}</div>'
 
     st.markdown(
         f"""
 <div class="card">
-  <div class="gate" style="border-color:{g_color}; background:{g_bg}">
-    <span class="g-icon" style="color:{g_color}">{g_icon}</span>
+  <div class="gate" style="border-color:{g_color}66; background:{g_color}0d">
+    <span class="g-dot" style="background:{g_color}; box-shadow:0 0 14px {g_color}"></span>
     <div><div class="g-title" style="color:{g_color}">{g_text}</div>
-      <div class="g-sub">Thresholds from <code>evals/metrics/thresholds.py</code> · source: <code>{_escape(src)}</code></div></div>
+      <div class="g-sub">thresholds <code>evals/metrics/thresholds.py</code> · source <code>{_escape(src)}</code>
+      · bar = score, tick = gate</div></div>
   </div>
   {cards}
 </div>
@@ -398,17 +414,33 @@ def judge_answer(question: str, answer: str, contexts: list) -> dict:
     return _parse_judge_json(raw)
 
 
-# ── Project 1 runner (full trace) ─────────────────────────────────────────────
 def run_sut(question: str) -> dict:
     from src.graph.graph import answer_query  # Project 1's entry point
 
     return answer_query(question)
 
 
-# ── Renderers for the two columns ─────────────────────────────────────────────
+# ── Renderers for the two live columns ────────────────────────────────────────
+def _sources_html(sources: list) -> str:
+    if not sources:
+        return ""
+    chips = "".join(f'<span class="src">{icon("doc", 12)}{_escape(s)}</span>' for s in sources)
+    return f'<div style="margin-bottom:.9rem">{chips}</div>'
+
+
+def _contexts_html(contexts: list) -> str:
+    if not contexts:
+        return ""
+    blocks = ""
+    for i, ctx in enumerate(contexts, start=1):
+        preview = _escape(ctx[:360] + ("…" if len(ctx) > 360 else ""))
+        blocks += f'<div class="ctx"><span class="n">[{i}]</span>{preview}</div>'
+    return f'<div class="label" style="margin-top:.4rem">{icon("search", 13)} Retrieved context</div>{blocks}'
+
+
 def render_p1(result: dict) -> None:
     grounded = result.get("grounded", False)
-    color, bg = (ACCENT, "rgba(62,224,143,0.12)") if grounded else (WARN, "rgba(255,209,102,0.12)")
+    color = OK if grounded else WARN
     status_icon = icon("check") if grounded else icon("alert")
     status_text = "Grounded answer" if grounded else "Refused — could not ground"
     verdict = (result.get("critique") or "n/a").lower()
@@ -421,9 +453,9 @@ def render_p1(result: dict) -> None:
     st.markdown(
         f"""
 <div class="card">
-  <span class="pill" style="color:{color}; background:{bg}">{status_icon} {status_text}</span>
+  <span class="pill" style="color:{color}; background:{color}1a; border:1px solid {color}55">{status_icon} {status_text}</span>
   <div class="answer-card">{_escape(result.get("answer", ""))}</div>
-  <div class="stats" style="margin-top:1rem">
+  <div class="stats">
     <div class="stat"><div class="k">Self-critique</div><div class="v" style="color:{color}">{verdict.upper()}</div></div>
     <div class="stat"><div class="k">Retries</div><div class="v">{result.get("retries", 0)}</div></div>
     <div class="stat"><div class="k">Sources</div><div class="v">{len(result.get("sources", []))}</div></div>
@@ -440,22 +472,20 @@ def render_p1(result: dict) -> None:
 def render_judge(scores: dict, p1_grounded: bool) -> None:
     gate_input = {m: scores[m] for m in _JUDGE_METRICS}
     passed, _ = evaluate_gates(gate_input, layer="pr")
-    g_color = ACCENT if passed else DANGER
-    g_icon = icon("check", 20) if passed else icon("x", 20)
+    g_color = OK if passed else BAD
     g_text = "GATE: PASS" if passed else "GATE: FAIL"
 
     rows = ""
     for m in _JUDGE_METRICS:
         ok, _ = check_metric(m, scores[m])
-        vcolor = ACCENT if ok else DANGER
-        tick = icon("check", 15) if ok else icon("x", 15)
+        vcolor = OK if ok else BAD
+        tick = icon("check", 14) if ok else icon("x", 14)
         rows += (
             f'<div class="jrow"><div class="j-left"><span style="color:{vcolor}">{tick}</span>'
-            f'<span><div class="j-name">{m}</div><div class="j-thr">threshold {_fmt_threshold(m)}</div></span></div>'
+            f'<span><div class="j-name">{m}</div><div class="j-thr">gate {_fmt_threshold(m)}</div></span></div>'
             f'<div class="j-val" style="color:{vcolor}">{scores[m]:.2f}</div></div>'
         )
 
-    # Agreement note: does the independent judge agree with P1's self-critique?
     agree = (passed and p1_grounded) or (not passed and not p1_grounded)
     agree_txt = (
         "Independent judge <b>agrees</b> with Project 1's self-critique."
@@ -471,10 +501,11 @@ def render_judge(scores: dict, p1_grounded: bool) -> None:
     st.markdown(
         f"""
 <div class="card">
-  <div class="gate" style="border-color:{g_color}; background:rgba(0,0,0,0.15)">
-    <span class="g-icon" style="color:{g_color}">{g_icon}</span>
-    <div><div class="g-title" style="color:{g_color}">{g_text}</div>
-      <div class="g-sub">verdict: <code>{_escape(scores.get("verdict"))}</code> · judge: <code>{_escape(os.getenv("JUDGE_MODEL", "groq default"))}</code></div></div>
+  <div class="gate" style="border-color:{g_color}66; background:{g_color}0d; padding:.85rem 1.1rem">
+    <span class="g-dot" style="background:{g_color}; box-shadow:0 0 12px {g_color}"></span>
+    <div><div class="g-title" style="color:{g_color}; font-size:1.1rem">{g_text}</div>
+      <div class="g-sub">verdict <code>{_escape(scores.get("verdict"))}</code> · judge
+      <code>{_escape(os.getenv("JUDGE_MODEL", "groq default"))}</code></div></div>
   </div>
   {rows}
   <div class="reason" style="margin-top:.8rem"><b>Judge reasoning:</b> {_escape(scores.get("reason"))}</div>
@@ -485,19 +516,24 @@ def render_judge(scores: dict, p1_grounded: bool) -> None:
     )
 
 
-# ── Hero ──────────────────────────────────────────────────────────────────────
+# ── Masthead ──────────────────────────────────────────────────────────────────
 st.markdown(
     f"""
-<div class="hero">
-  <div class="badge">{icon('scale', 14)} LLM-Eval · measures Project 1</div>
+<div class="eyebrow">
+  <span class="tag">{icon('scale', 13)} LLM-EVAL · CI/CD QUALITY HARNESS</span>
+  <span class="sut">system under test <b>Self-Healing RAG</b></span>
+</div>
+<div class="masthead">
   <h1>Unit tests, but for LLM quality.</h1>
-  <p>An automated eval pipeline that grades the <b>Self-Healing RAG</b> system on faithfulness,
-  relevancy and scope — then a <b>hard quality gate</b> blocks any regression, just like CI.</p>
-  <div class="flow">
-    <span>System under test</span><span class="arrow">→</span>
-    <span>RAGAS / DeepEval</span><span class="arrow">→</span>
-    <span>Thresholds</span><span class="arrow">→</span>
-    <span>Gate</span>
+  <div class="side">
+    <p>Every change is graded on faithfulness, relevancy and scope — then a
+    <b style="color:{TEXT}">hard quality gate</b> blocks any regression, exactly like CI.</p>
+    <div class="flow">
+      <span>System under test</span><span class="arrow">→</span>
+      <span>RAGAS / DeepEval</span><span class="arrow">→</span>
+      <span>Thresholds</span><span class="arrow">→</span>
+      <span>Gate</span>
+    </div>
   </div>
 </div>
 """,
@@ -549,9 +585,9 @@ if run and st.session_state.q.strip():
     except Exception as exc:  # noqa: BLE001
         st.markdown(
             f"""
-<div class="card" style="border-color:{DANGER}">
-  <span class="pill" style="color:{DANGER}; background:rgba(255,122,122,0.12)">{icon('alert')} Pipeline error</span>
-  <div class="answer-card mono" style="font-size:.88rem; color:#FCA5A5">{_escape(str(exc))}</div>
+<div class="card" style="border-color:{BAD}66">
+  <span class="pill" style="color:{BAD}; background:{BAD}1a; border:1px solid {BAD}55">{icon('alert')} Pipeline error</span>
+  <div class="answer-card mono" style="font-size:.88rem; color:#FFB3B3">{_escape(str(exc))}</div>
   <div class="reason" style="margin-top:.8rem">Check that Qdrant is running and ingested, and that
   <code>GROQ_API_KEY</code> / <code>COHERE_API_KEY</code> are set (Streamlit secrets when deployed,
   or <code>.env</code> locally).</div>
@@ -568,10 +604,10 @@ elif run:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(
     f"""
-<div style="text-align:center; margin-top:2.5rem; color:{MUTED}; font-family:'Spline Sans Mono',monospace; font-size:.74rem; line-height:1.9">
-  Project 2 measures <a href="https://github.com/fahadcs321/self-healing-rag" style="color:{ACCENT}; text-decoration:none">Self-Healing RAG</a>
+<div style="text-align:center; margin-top:2.4rem; color:{MUTED}; font-family:'Spline Sans Mono',monospace; font-size:.72rem; line-height:1.9">
+  Project 2 measures <a href="https://github.com/fahadcs321/self-healing-rag" style="color:{OK}; text-decoration:none">Self-Healing RAG</a>
   · DeepEval + RAGAS + LiteLLM · Groq judge, local embeddings<br>
-  <a href="https://github.com/fahadcs321/llm-eval-pipeline" style="color:{ACCENT}; text-decoration:none">github.com/fahadcs321/llm-eval-pipeline</a>
+  <a href="https://github.com/fahadcs321/llm-eval-pipeline" style="color:{ICE}; text-decoration:none">github.com/fahadcs321/llm-eval-pipeline</a>
 </div>
 """,
     unsafe_allow_html=True,
