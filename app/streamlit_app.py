@@ -47,7 +47,7 @@ if os.path.isdir(_P1_PATH) and _P1_PATH not in sys.path:
 
 from evals.gate import evaluate_gates  # noqa: E402
 from evals.judge import get_chat_model  # noqa: E402
-from evals.metrics.thresholds import THRESHOLDS, check_metric  # noqa: E402
+from evals.metrics.thresholds import THRESHOLDS, check_metric, resolve_thresholds  # noqa: E402
 
 # ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -251,17 +251,18 @@ def _fmt_value(metric: str, value: float) -> str:
     return f"{value:.3f}"
 
 
-def _fmt_threshold(metric: str) -> str:
-    spec = THRESHOLDS.get(metric, {})
+def _fmt_threshold(metric: str, table: dict | None = None) -> str:
+    spec = (table or THRESHOLDS).get(metric, {})
     if spec.get("direction") == "lower_is_better":
         return f"≤ {spec.get('max')}"
     return f"≥ {spec.get('min')}"
 
 
-def _metric_card(metric: str, value: float) -> str:
+def _metric_card(metric: str, value: float, table: dict | None = None) -> str:
     """A metric card with the signature threshold bar: fill = score, tick = gate."""
-    spec = THRESHOLDS.get(metric, {})
-    ok, _ = check_metric(metric, value)
+    table = table or THRESHOLDS
+    spec = table.get(metric, {})
+    ok, _ = check_metric(metric, value, thresholds=table)
     color = OK if ok else BAD
     if spec.get("direction") == "lower_is_better":
         thr = float(spec.get("max", 1.0))
@@ -280,7 +281,7 @@ def _metric_card(metric: str, value: float) -> str:
         f'<div class="m-val" style="color:{color}">{_fmt_value(metric, value)}</div>'
         f'<div class="bar"><div class="fill" style="width:{fill:.1f}%; background:{color}"></div>'
         f'<div class="tick" style="left:{tick:.1f}%"></div></div>'
-        f'<div class="m-thr">gate {_fmt_threshold(metric)}</div></div>'
+        f'<div class="m-thr">gate {_fmt_threshold(metric, table)}</div></div>'
     )
 
 
@@ -343,17 +344,26 @@ def render_dashboard(sut_label: str) -> None:
         )
         return
 
-    passed, _ = evaluate_gates(results, layer="nightly")
+    # Thresholds are anchored per system: the Nordic news RAG is gated against its
+    # own baseline, not the English corpus' (an English-centric judge under-rates
+    # Nordic faithfulness, so the English bar is the wrong ruler for it).
+    profile = "nordic" if is_news else None
+    table = resolve_thresholds(profile)
+    passed, _ = evaluate_gates(results, layer="nightly", thresholds=table)
     g_color = OK if passed else BAD
     g_text = "GATE: PASS — merge allowed" if passed else "GATE: FAIL — merge blocked"
     src = ", ".join(files) if files else "—"
+    thr_note = (
+        "Nordic baseline profile · gate anchored to this system"
+        if profile else "English-corpus thresholds"
+    )
 
     cards = ""
     for group_title, metrics in METRIC_GROUPS:
         present = [m for m in metrics if m in results]
         if not present:
             continue
-        cells = "".join(_metric_card(m, results[m]) for m in present)
+        cells = "".join(_metric_card(m, results[m], table) for m in present)
         cards += f'<div class="label" style="margin-top:.4rem">{group_title}</div><div class="mgrid">{cells}</div>'
 
     st.markdown(
@@ -362,8 +372,7 @@ def render_dashboard(sut_label: str) -> None:
   <div class="gate" style="border-color:{g_color}66; background:{g_color}0d">
     <span class="g-dot" style="background:{g_color}; box-shadow:0 0 14px {g_color}"></span>
     <div><div class="g-title" style="color:{g_color}">{g_text}</div>
-      <div class="g-sub">thresholds <code>evals/metrics/thresholds.py</code> · source <code>{_escape(src)}</code>
-      · bar = score, tick = gate</div></div>
+      <div class="g-sub">{thr_note} · source <code>{_escape(src)}</code> · bar = score, tick = gate</div></div>
   </div>
   {cards}
 </div>
