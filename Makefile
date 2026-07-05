@@ -1,4 +1,4 @@
-.PHONY: help install install-dev lint format test eval-rag eval-deep gate cost drift ui clean
+.PHONY: help install install-dev lint format test eval-rag eval-deep gate cost latency drift ui clean
 
 help:
 	@echo "make install      - install full pipeline deps (deepeval, ragas, ...)"
@@ -10,6 +10,7 @@ help:
 	@echo "make eval-deep    - DeepEval batch eval (needs GROQ_API_KEY)"
 	@echo "make gate         - run the CI quality gate over a results file"
 	@echo "make cost         - LiteLLM cost tracking over the golden dataset"
+	@echo "make latency      - measure the RAG pipeline's per-stage + end-to-end latency"
 	@echo "make drift        - drift detection vs 7-day baseline"
 	@echo "make ui           - run the Build-vs-Measure demo UI on :8502 (beside Project 1)"
 
@@ -40,6 +41,9 @@ gate:
 
 cost:
 	python evals/runners/run_cost.py --output results/cost_nightly.json
+
+latency:
+	python evals/runners/run_latency.py --limit 5 --output results/latency.json
 
 drift:
 	python scripts/drift_detector.py --current results/ragas_nightly.json

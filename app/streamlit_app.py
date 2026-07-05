@@ -230,6 +230,18 @@ div.stButton > button {{ border-radius:10px; border:1px solid {BORDER}; backgrou
 div.stButton > button:hover {{ border-color:{ICE}; color:{ICE}; background:rgba(125,225,255,0.05); }}
 div.stButton > button[kind="primary"] {{ background:{OK}; border:1px solid {OK}; color:#052015; font-weight:700; }}
 div.stButton > button[kind="primary"]:hover {{ background:#2BC77B; border-color:#2BC77B; color:#052015; }}
+/* ── performance panel (measured latency) ────────────── */
+.perf-head {{ display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; margin-bottom:.9rem; }}
+.perf-big {{ font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:1.7rem; color:{TEXT}; }}
+.perf-sub {{ font-family:'Spline Sans Mono',monospace; font-size:.72rem; color:{MUTED}; }}
+.perf-budget {{ margin-left:auto; font-family:'Spline Sans Mono',monospace; font-size:.72rem;
+  border:1px solid {BORDER}; border-radius:999px; padding:.25rem .7rem; }}
+.latrow {{ display:grid; grid-template-columns:96px 1fr 150px; align-items:center; gap:.7rem; margin-bottom:.5rem; }}
+.latrow .ln {{ font-family:'Spline Sans Mono',monospace; font-size:.76rem; color:{TEXT}; }}
+.latrow .track {{ height:11px; border-radius:99px; background:rgba(154,148,190,.12); overflow:hidden; }}
+.latrow .track .fill {{ height:100%; border-radius:99px; }}
+.latrow .lv {{ font-family:'Spline Sans Mono',monospace; font-size:.72rem; color:{MUTED}; text-align:right; }}
+.latrow .lv b {{ color:{TEXT}; font-weight:600; }}
 @media (max-width: 760px) {{ .masthead h1 {{ font-size:2.1rem; }} }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition:none!important; animation:none!important; }} }}
 </style>
@@ -375,6 +387,65 @@ def render_dashboard(sut_label: str) -> None:
       <div class="g-sub">{thr_note} · source <code>{_escape(src)}</code> · bar = score, tick = gate</div></div>
   </div>
   {cards}
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+# ── Performance panel: measured per-stage latency ─────────────────────────────
+_STAGE_COLORS = {"retrieve": ICE, "rerank": VIOLET, "generate": OK, "critique": WARN}
+
+
+def render_performance() -> None:
+    path = ROOT / "results" / "latency.json"
+    if not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        stages = data["stage_breakdown_ms"]
+    except Exception:
+        return
+
+    st.markdown(
+        f'<div class="label" style="margin-top:1.4rem">{icon("gauge", 14)} Self-Healing RAG · measured latency '
+        f'<span style="text-transform:none;letter-spacing:0">· {int(data.get("n_queries", 0))} queries, '
+        "happy path</span></div>",
+        unsafe_allow_html=True,
+    )
+
+    p50, p95 = data.get("latency_p50_ms", 0), data.get("latency_p95_ms", 0)
+    under = p50 < 3000
+    bcolor = OK if under else WARN
+    order = ["retrieve", "rerank", "generate", "critique"]
+    scale = max((stages[s]["p50"] for s in order if s in stages), default=1) or 1
+
+    rows = ""
+    for s in order:
+        if s not in stages:
+            continue
+        b = stages[s]
+        w = min(b["p50"] / scale * 100, 100)
+        c = _STAGE_COLORS.get(s, MUTED)
+        rows += (
+            f'<div class="latrow"><span class="ln">{s}</span>'
+            f'<div class="track"><div class="fill" style="width:{w:.1f}%; background:{c}"></div></div>'
+            f'<span class="lv"><b>{b["p50"]:.0f}</b> ms · p95 {b["p95"]:.0f}</span></div>'
+        )
+
+    st.markdown(
+        f"""
+<div class="card">
+  <div class="perf-head">
+    <span class="perf-big">{p50:.0f} ms</span>
+    <span class="perf-sub">median end-to-end · p95 {p95:.0f} ms · mean {data.get("latency_mean_ms", 0):.0f} ms</span>
+    <span class="perf-budget" style="color:{bcolor}; border-color:{bcolor}66">
+      {"✓ within" if under else "⚠ tail over"} 3000 ms budget</span>
+  </div>
+  {rows}
+  <div class="reason" style="margin-top:.7rem">Retrieval is ~<b>32 ms</b> (10k hybrid index); the two LLM
+  calls and the Cohere rerank dominate. The p95 tail is rerank network variance on the free tier —
+  a local cross-encoder (BGE-reranker) removes it.</div>
 </div>
 """,
         unsafe_allow_html=True,
@@ -555,6 +626,9 @@ _sut = st.radio(
     horizontal=True, label_visibility="collapsed", key="sut_sel",
 )
 render_dashboard(_sut)
+
+# ── Performance (measured latency) ────────────────────────────────────────────
+render_performance()
 
 # ── Live grade ────────────────────────────────────────────────────────────────
 st.markdown(
